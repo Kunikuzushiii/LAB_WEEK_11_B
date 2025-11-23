@@ -1,0 +1,35 @@
+Qonita Azalia
+00000093589
+
+1. When a user takes a picture, that picture is stored in a path based on the given URI. In which part of the code handles this? (Copy that part of the code as the answer)
+   - The part that handles inserting the captured image file into MediaStore is in ProviderFileManager.insertToStore(...)
+   Code:
+   private fun insertToStore(fileInfo: FileInfo, contentUri: Uri, contentValues: ContentValues) {
+       executor.execute {
+           val insertedUri = contentResolver.insert(contentUri, contentValues)
+           insertedUri?.let {
+               val inputStream = contentResolver.openInputStream(fileInfo.uri)
+               val outputStream = contentResolver.openOutputStream(insertedUri)
+               IOUtils.copy(inputStream, outputStream)
+           }
+       }
+   }
+
+2. In your FileInfo.kt, there are 5 attributes. On the first attribute, what does the URI refer to? And on the fourth attribute, what does relativePath refer to?
+   - The first attribute `uri: Uri` is the temporary/content URI that points to the file location accessible by other apps. In this project it is produced by FileProvider.getUriForFile(...) and is used as the source URI for reading the file content.
+   - The fourth attribute `relativePath: String` refers to the relative directory path in external storage (used for MediaStore on Android Q+).
+Example: Environment.DIRECTORY_PICTURES or Environment.DIRECTORY_MOVIES. On Android 10+ it is set as MediaStore.<...>.RELATIVE_PATH.
+
+
+3. [Bonus] Explain the chronological order from when a user takes a picture until the file is stored in the MediaStore.
+   1. User taps the Photo button -> app calls providerFileManager.generatePhotoUri(timeMillis).
+   2. generatePhotoUri(...) creates a File object for app's external files directory (e.g. /Android/data/.../files/Pictures/img_TIME.jpg) and a URI for that file via FileProvider.getUriForFile(...).
+   3. The app launches camera Activity via ActivityResultContract TakePicture, passing the FileProvider URI as the target.
+   4. The camera app writes image bytes into the provided URI (the file in app external files dir).
+   5. After camera finishes, the Activity result callback runs in the app. In the callback, ProviderFileManager.insertImageToStore(photoInfo) is called.
+   6. insertImageToStore(...) calls insertToStore(...): inserts a new row into MediaStore using contentResolver.insert(contentUri, contentValues) — returns a new MediaStore URI.
+   7. The method opens an InputStream from the FileProvider URI (source file) and an OutputStream to the inserted MediaStore URI, then copies bytes (IOUtils.copy).
+   8. The image is now stored and visible in the system MediaStore (gallery apps) at the insertedUri location.
+
+
+
